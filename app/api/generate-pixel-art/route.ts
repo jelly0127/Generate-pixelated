@@ -166,12 +166,24 @@ export async function POST(request: Request) {
         quality: 'hd',
         style: 'natural',
       });
-
-      console.log('Minecraft风格图像生成成功');
-      return NextResponse.json({
-        imageUrl: result.data[0].url,
-        remainingRequests: DAILY_REQUEST_LIMIT - (macRecord.dailyRequestCount + 1),
-      });
+      if (result.data[0].url) {
+        // 更新请求计数
+        await prisma.macAddressLimit.update({
+          where: { macAddress },
+          data: {
+            dailyRequestCount: macRecord.dailyRequestCount + 1,
+            lastRequestDate: new Date(),
+          },
+        });
+        console.log('Minecraft风格图像生成成功');
+        return NextResponse.json({
+          imageUrl: result.data[0].url,
+          remainingRequests: DAILY_REQUEST_LIMIT - (macRecord.dailyRequestCount + 1),
+        });
+      } else {
+        console.error('Minecraft风格图像生成失败');
+        return NextResponse.json({ error: '图像处理失败' }, { status: 500 });
+      }
     } else {
       // 使用成功的分析结果
       const prompt = `创建一张严格的Minecraft风格像素肖像，基于以下详细描述:

@@ -210,7 +210,13 @@ const PixelArtGenerator = () => {
           <div className="flex flex-col items-center">
             <h2 className="mb-2 text-lg font-medium">原始图像</h2>
             <div className="overflow-hidden rounded-lg border" style={{ width: '300px', height: '300px' }}>
-              <Image src={originalImage} alt="原始图像" className="h-full w-full object-cover" width={300} height={300} />
+              <Image
+                src={originalImage}
+                alt="原始图像"
+                className="h-full w-full object-cover"
+                width={300}
+                height={300}
+              />
             </div>
           </div>
         )}
@@ -218,8 +224,14 @@ const PixelArtGenerator = () => {
         {generatedImage && (
           <div className="flex flex-col items-center">
             <h2 className="mb-2 text-lg font-medium">生成的像素艺术</h2>
-            <div className="overflow-hidden rounded-lg border" >
-              <Image src={generatedImage} alt="生成的像素艺术" className="h-full w-full object-cover" width={300} height={300} />
+            <div className="overflow-hidden rounded-lg border">
+              <Image
+                src={generatedImage}
+                alt="生成的像素艺术"
+                className="h-full w-full object-cover"
+                width={300}
+                height={300}
+              />
             </div>
           </div>
         )}
