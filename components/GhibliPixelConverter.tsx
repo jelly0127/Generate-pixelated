@@ -57,17 +57,20 @@ const GhibliPixelConverter = () => {
           // 计算亮度
           const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
 
-          if (brightness > 200) { // 高光区域
+          if (brightness > 200) {
+            // 高光区域
             // 增加淡蓝色
             data[i] = Math.min(255, data[i] * 0.9);
             data[i + 1] = Math.min(255, data[i + 1] * 0.95);
             data[i + 2] = Math.min(255, data[i + 2] * 1.1);
-          } else if (brightness > 100) { // 中间调
+          } else if (brightness > 100) {
+            // 中间调
             // 略微偏紫
             data[i] = Math.min(255, data[i] * 1.05);
             data[i + 1] = Math.min(255, data[i + 1] * 0.95);
             data[i + 2] = Math.min(255, data[i + 2] * 1.1);
-          } else { // 暗部
+          } else {
+            // 暗部
             // 更暗的蓝紫色
             data[i] = Math.min(255, data[i] * 0.9);
             data[i + 1] = Math.min(255, data[i + 1] * 0.9);
@@ -111,9 +114,9 @@ const GhibliPixelConverter = () => {
           const g = data[i + 1];
           const b = data[i + 2];
 
-          data[i] = Math.min(255, (r * (1 - sepia)) + (r * 0.769 + g * 0.686 + b * 0.534) * sepia);
-          data[i + 1] = Math.min(255, (g * (1 - sepia)) + (r * 0.349 + g * 0.686 + b * 0.168) * sepia);
-          data[i + 2] = Math.min(255, (b * (1 - sepia)) + (r * 0.272 + g * 0.534 + b * 0.131) * sepia);
+          data[i] = Math.min(255, r * (1 - sepia) + (r * 0.769 + g * 0.686 + b * 0.534) * sepia);
+          data[i + 1] = Math.min(255, g * (1 - sepia) + (r * 0.349 + g * 0.686 + b * 0.168) * sepia);
+          data[i + 2] = Math.min(255, b * (1 - sepia) + (r * 0.272 + g * 0.534 + b * 0.131) * sepia);
         }
         break;
 
@@ -123,20 +126,23 @@ const GhibliPixelConverter = () => {
           // 柔和的自然色调
           const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
 
-          if (brightness > 180) { // 高光区域
+          if (brightness > 180) {
+            // 高光区域
             // 保持明亮但稍微柔和
             const factor = 0.05 * intensityFactor;
             data[i] = data[i] * (1 - factor) + brightness * factor;
             data[i + 1] = data[i + 1] * (1 - factor) + brightness * factor;
             data[i + 2] = data[i + 2] * (1 - factor) + brightness * factor;
-          } else if (brightness > 100) { // 中间调
+          } else if (brightness > 100) {
+            // 中间调
             // 稍微增加色彩饱和度
             const avg = brightness;
             const satFactor = 0.1 * intensityFactor;
             data[i] = Math.min(255, data[i] + (data[i] - avg) * satFactor);
             data[i + 1] = Math.min(255, data[i + 1] + (data[i + 1] - avg) * satFactor);
             data[i + 2] = Math.min(255, data[i + 2] + (data[i + 2] - avg) * satFactor);
-          } else { // 暗部
+          } else {
+            // 暗部
             // 稍微提高暗部细节
             const liftFactor = 0.1 * intensityFactor;
             data[i] = Math.min(255, data[i] * (1 - liftFactor) + 30 * liftFactor);
@@ -193,7 +199,7 @@ const GhibliPixelConverter = () => {
         // 如果亮度差异大于阈值，则认为是边缘
         if (diffX > threshold || diffY > threshold) {
           // 使边缘更暗
-          const darkFactor = 1 - (strength / 10);
+          const darkFactor = 1 - strength / 10;
           tempData[idx] = data[idx] * darkFactor;
           tempData[idx + 1] = data[idx + 1] * darkFactor;
           tempData[idx + 2] = data[idx + 2] * darkFactor;
@@ -264,7 +270,8 @@ const GhibliPixelConverter = () => {
         const g = Math.sqrt(gx * gx + gy * gy);
 
         // 如果检测到边缘，增强边缘
-        if (g > 20) { // 阈值
+        if (g > 20) {
+          // 阈值
           // 增强边缘 - 使颜色更深
           output[idx] = Math.max(0, data[idx] - strength * 25);
           output[idx + 1] = Math.max(0, data[idx + 1] - strength * 25);
@@ -343,11 +350,7 @@ const GhibliPixelConverter = () => {
       processedCtx.imageSmoothingEnabled = false;
 
       // 放大绘制回原始大小，从而产生像素效果
-      processedCtx.drawImage(
-        smallCanvas,
-        0, 0, smallCanvas.width, smallCanvas.height,
-        0, 0, img.width, img.height
-      );
+      processedCtx.drawImage(smallCanvas, 0, 0, smallCanvas.width, smallCanvas.height, 0, 0, img.width, img.height);
 
       // 应用边缘增强
       if (edgeEnhance > 0) {
@@ -361,53 +364,42 @@ const GhibliPixelConverter = () => {
   }, [originalImage, pixelSize, colorCount, ghibliIntensity, colorMode, edgeEnhance]);
 
   return (
-    <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
       {originalImage && (
         <>
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex w-full flex-col gap-4 md:flex-row">
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">原始图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={originalCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">原始图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={originalCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">吉卜力像素风格图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={processedCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">吉卜力像素风格图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={processedCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2">
-            <div className="bg-gray-100 p-3 rounded-lg mb-2">
-              <h3 className="font-medium mb-2">吉卜力风格设置</h3>
+          <div className="flex w-full flex-col gap-2">
+            <div className="mb-2 rounded-lg bg-gray-100 p-3">
+              <h3 className="mb-2 font-medium">吉卜力风格设置</h3>
               <label className="flex items-center gap-2">
                 <span>吉卜力风格:</span>
                 <select
                   value={colorMode}
                   onChange={(e) => setColorMode(e.target.value)}
-                  className="border rounded px-2 py-1"
+                  className="rounded border px-2 py-1"
                 >
                   <option value="totoro">龙猫风格</option>
                   <option value="spirited">千与千寻风格</option>
@@ -417,7 +409,7 @@ const GhibliPixelConverter = () => {
                 </select>
               </label>
 
-              <label className="flex items-center gap-2 mt-2">
+              <label className="mt-2 flex items-center gap-2">
                 <span>风格强度:</span>
                 <input
                   type="range"
@@ -431,8 +423,8 @@ const GhibliPixelConverter = () => {
               </label>
             </div>
 
-            <div className="bg-gray-100 p-3 rounded-lg">
-              <h3 className="font-medium mb-2">像素化设置</h3>
+            <div className="rounded-lg bg-gray-100 p-3">
+              <h3 className="mb-2 font-medium">像素化设置</h3>
               <label className="flex items-center gap-2">
                 <span>像素大小:</span>
                 <input
@@ -446,7 +438,7 @@ const GhibliPixelConverter = () => {
                 <span>{pixelSize}px</span>
               </label>
 
-              <label className="flex items-center gap-2 mt-2">
+              <label className="mt-2 flex items-center gap-2">
                 <span>颜色数量:</span>
                 <input
                   type="range"
@@ -459,7 +451,7 @@ const GhibliPixelConverter = () => {
                 <span>{colorCount}</span>
               </label>
 
-              <label className="flex items-center gap-2 mt-2">
+              <label className="mt-2 flex items-center gap-2">
                 <span>边缘增强:</span>
                 <input
                   type="range"
@@ -481,7 +473,7 @@ const GhibliPixelConverter = () => {
                 link.download = 'ghibli_pixel_art.png';
                 link.click();
               }}
-              className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               下载吉卜力像素风格图片
             </button>
@@ -492,4 +484,4 @@ const GhibliPixelConverter = () => {
   );
 };
 
-export default GhibliPixelConverter; 
+export default GhibliPixelConverter;

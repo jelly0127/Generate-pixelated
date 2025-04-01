@@ -107,11 +107,7 @@ const PixelConverter = () => {
       pixCtx.imageSmoothingEnabled = false;
 
       // 放大绘制回原始大小，从而产生像素效果
-      pixCtx.drawImage(
-        smallCanvas,
-        0, 0, smallCanvas.width, smallCanvas.height,
-        0, 0, img.width, img.height
-      );
+      pixCtx.drawImage(smallCanvas, 0, 0, smallCanvas.width, smallCanvas.height, 0, 0, img.width, img.height);
 
       // 应用后处理高斯模糊
       if (postBlur > 0) {
@@ -151,45 +147,34 @@ const PixelConverter = () => {
   };
 
   return (
-    <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
       {originalImage && (
         <>
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex w-full flex-col gap-4 md:flex-row">
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">原始图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={originalCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">原始图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={originalCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">像素风格图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={pixelatedCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">像素风格图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={pixelatedCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2">
+          <div className="flex w-full flex-col gap-2">
             <label className="flex items-center gap-2">
               <span>像素大小:</span>
               <input
@@ -233,7 +218,7 @@ const PixelConverter = () => {
 
             <button
               onClick={downloadPixelatedImage}
-              className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               下载像素风格图片
             </button>
@@ -244,4 +229,4 @@ const PixelConverter = () => {
   );
 };
 
-export default PixelConverter; 
+export default PixelConverter;

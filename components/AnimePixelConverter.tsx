@@ -43,11 +43,7 @@ const AnimePixelConverter = () => {
   };
 
   // 动漫风格的边缘检测和增强
-  const detectAndEnhanceEdges = (
-    ctx: CanvasRenderingContext2D,
-    thickness: number = 1,
-    threshold: number = 20
-  ) => {
+  const detectAndEnhanceEdges = (ctx: CanvasRenderingContext2D, thickness: number = 1, threshold: number = 20) => {
     const canvas = ctx.canvas;
     const width = canvas.width;
     const height = canvas.height;
@@ -131,7 +127,7 @@ const AnimePixelConverter = () => {
     const simplifyFactor = level / 10;
 
     // 颜色区域
-    const regions: { [key: string]: { r: number, g: number, b: number, count: number } } = {};
+    const regions: { [key: string]: { r: number; g: number; b: number; count: number } } = {};
 
     // 第一步：简化颜色，合并相似区域
     for (let i = 0; i < data.length; i += 4) {
@@ -195,7 +191,9 @@ const AnimePixelConverter = () => {
 
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
-          let h, s, l = (max + min) / 2;
+          let h,
+            s,
+            l = (max + min) / 2;
 
           if (max === min) {
             h = s = 0; // 灰度
@@ -204,10 +202,17 @@ const AnimePixelConverter = () => {
             s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
             switch (max) {
-              case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-              case g: h = (b - r) / d + 2; break;
-              case b: h = (r - g) / d + 4; break;
-              default: h = 0;
+              case r:
+                h = (g - b) / d + (g < b ? 6 : 0);
+                break;
+              case g:
+                h = (b - r) / d + 2;
+                break;
+              case b:
+                h = (r - g) / d + 4;
+                break;
+              default:
+                h = 0;
             }
 
             h /= 6;
@@ -347,11 +352,7 @@ const AnimePixelConverter = () => {
       pixCtx.imageSmoothingEnabled = false;
 
       // 放大绘制回原始大小，从而产生像素效果
-      pixCtx.drawImage(
-        smallCanvas,
-        0, 0, smallCanvas.width, smallCanvas.height,
-        0, 0, img.width, img.height
-      );
+      pixCtx.drawImage(smallCanvas, 0, 0, smallCanvas.width, smallCanvas.height, 0, 0, img.width, img.height);
 
       // 保存像素化后的图像
       setPixelatedImage(pixCanvas.toDataURL());
@@ -360,45 +361,34 @@ const AnimePixelConverter = () => {
   }, [originalImage, pixelSize, animeLevel, colorCount, contrastLevel, edgeThickness, saturation, colorShift]);
 
   return (
-    <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
       {originalImage && (
         <>
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex w-full flex-col gap-4 md:flex-row">
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">原始图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={originalCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">原始图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={originalCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">动漫像素风格图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={pixelatedCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">动漫像素风格图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={pixelatedCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2">
+          <div className="flex w-full flex-col gap-2">
             <label className="flex items-center gap-2">
               <span>像素大小:</span>
               <input
@@ -477,13 +467,9 @@ const AnimePixelConverter = () => {
               <span>{saturation}</span>
             </label>
 
-            <div className="flex gap-4 mt-2">
+            <div className="mt-2 flex gap-4">
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={colorShift}
-                  onChange={(e) => setColorShift(e.target.checked)}
-                />
+                <input type="checkbox" checked={colorShift} onChange={(e) => setColorShift(e.target.checked)} />
                 <span>动漫色彩偏移</span>
               </label>
             </div>
@@ -496,7 +482,7 @@ const AnimePixelConverter = () => {
                 link.download = 'anime_pixel_art.png';
                 link.click();
               }}
-              className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               下载动漫像素风格图片
             </button>
@@ -507,4 +493,4 @@ const AnimePixelConverter = () => {
   );
 };
 
-export default AnimePixelConverter; 
+export default AnimePixelConverter;

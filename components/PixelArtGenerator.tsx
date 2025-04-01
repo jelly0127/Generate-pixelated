@@ -1,13 +1,14 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
-const MinecraftAnimeAvatarGenerator = () => {
+const PixelArtGenerator = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [style, setStyle] = useState<string>('minecraft');
 
   // 转换图像为PNG并限制大小
   const convertToPng = (file: File): Promise<File> => {
@@ -78,14 +79,13 @@ const MinecraftAnimeAvatarGenerator = () => {
     };
     reader.readAsDataURL(file);
 
-    // 保存文件，但不立即设置uploadedFile
-    // 我们会在generateImage函数中转换格式
+    // 保存文件
     setUploadedFile(file);
   };
 
   const generateImage = async () => {
     if (!uploadedFile) {
-      setError('请先上传头像图片');
+      setError('请先上传图片');
       return;
     }
 
@@ -99,9 +99,9 @@ const MinecraftAnimeAvatarGenerator = () => {
       // 创建FormData对象直接发送文件
       const formData = new FormData();
       formData.append('image', pngFile);
-      formData.append('style', 'minecraft');
+      formData.append('style', style);
 
-      const response = await axios.post('/api/transform-image', formData, {
+      const response = await axios.post('/api/generate-pixel-art', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -126,15 +126,22 @@ const MinecraftAnimeAvatarGenerator = () => {
 
     const link = document.createElement('a');
     link.href = generatedImage;
-    link.download = 'minecraft_avatar.png';
+    link.download = `pixel_art_${style}.png`;
     link.click();
   };
 
   return (
     <div className="flex w-full max-w-3xl flex-col items-center gap-6">
-      <h1 className="text-2xl font-bold">我的世界像素头像生成器</h1>
+      <h1 className="text-2xl font-bold">像素艺术生成器</h1>
 
       <div className="w-full">
+        <label className="mb-2 block font-medium">选择风格:</label>
+        <select value={style} onChange={(e) => setStyle(e.target.value)} className="mb-4 w-full rounded-md border p-2">
+          <option value="minecraft">我的世界风格</option>
+          <option value="anime">动漫像素风格</option>
+          <option value="ghibli">吉卜力工作室风格</option>
+        </select>
+
         <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full rounded-md border p-2" />
       </div>
 
@@ -143,27 +150,29 @@ const MinecraftAnimeAvatarGenerator = () => {
         disabled={loading || !uploadedFile}
         className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400"
       >
-        {loading ? '生成中...' : '生成我的世界风格头像'}
+        {loading
+          ? '生成中...'
+          : `生成${style === 'minecraft' ? '我的世界' : style === 'anime' ? '动漫' : '吉卜力'}像素艺术`}
       </button>
 
       {error && <div className="text-red-500">{error}</div>}
 
-      {/* 两张图片并排显示，限制尺寸为200px */}
-      <div className="flex w-full flex-row justify-center gap-8">
+      {/* 两张图片并排显示，限制尺寸为300px */}
+      <div className="flex w-full flex-row flex-wrap justify-center gap-8">
         {originalImage && (
           <div className="flex flex-col items-center">
-            <h2 className="mb-2 text-lg font-medium">原始头像</h2>
-            <div className="overflow-hidden rounded-lg border" style={{ width: '200px', height: '200px' }}>
-              <img src={originalImage} alt="原始头像" className="h-full w-full object-cover" />
+            <h2 className="mb-2 text-lg font-medium">原始图像</h2>
+            <div className="overflow-hidden rounded-lg border" style={{ width: '300px', height: '300px' }}>
+              <img src={originalImage} alt="原始图像" className="h-full w-full object-cover" />
             </div>
           </div>
         )}
 
         {generatedImage && (
           <div className="flex flex-col items-center">
-            <h2 className="mb-2 text-lg font-medium">我的世界风格头像</h2>
-            <div className="overflow-hidden rounded-lg border" style={{ width: '200px', height: '200px' }}>
-              <img src={generatedImage} alt="生成的我的世界风格头像" className="h-full w-full object-cover" />
+            <h2 className="mb-2 text-lg font-medium">生成的像素艺术</h2>
+            <div className="overflow-hidden rounded-lg border" style={{ width: '300px', height: '300px' }}>
+              <img src={generatedImage} alt="生成的像素艺术" className="h-full w-full object-cover" />
             </div>
           </div>
         )}
@@ -172,11 +181,11 @@ const MinecraftAnimeAvatarGenerator = () => {
       {/* 下载按钮 */}
       {generatedImage && (
         <button onClick={downloadImage} className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">
-          下载我的世界风格头像
+          下载像素艺术图像
         </button>
       )}
     </div>
   );
 };
 
-export default MinecraftAnimeAvatarGenerator;
+export default PixelArtGenerator;

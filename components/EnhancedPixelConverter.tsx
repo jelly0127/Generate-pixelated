@@ -84,29 +84,29 @@ const EnhancedPixelConverter = () => {
         // 分散误差到周围像素
         if (x + 1 < width) {
           // 右侧像素
-          output[(y * width + x + 1) * 4] += errR * 7 / 16;
-          output[(y * width + x + 1) * 4 + 1] += errG * 7 / 16;
-          output[(y * width + x + 1) * 4 + 2] += errB * 7 / 16;
+          output[(y * width + x + 1) * 4] += (errR * 7) / 16;
+          output[(y * width + x + 1) * 4 + 1] += (errG * 7) / 16;
+          output[(y * width + x + 1) * 4 + 2] += (errB * 7) / 16;
 
           if (y + 1 < height) {
             // 右下像素
-            output[((y + 1) * width + x + 1) * 4] += errR * 1 / 16;
-            output[((y + 1) * width + x + 1) * 4 + 1] += errG * 1 / 16;
-            output[((y + 1) * width + x + 1) * 4 + 2] += errB * 1 / 16;
+            output[((y + 1) * width + x + 1) * 4] += (errR * 1) / 16;
+            output[((y + 1) * width + x + 1) * 4 + 1] += (errG * 1) / 16;
+            output[((y + 1) * width + x + 1) * 4 + 2] += (errB * 1) / 16;
           }
         }
 
         if (y + 1 < height) {
           // 下方像素
-          output[((y + 1) * width + x) * 4] += errR * 5 / 16;
-          output[((y + 1) * width + x) * 4 + 1] += errG * 5 / 16;
-          output[((y + 1) * width + x) * 4 + 2] += errB * 5 / 16;
+          output[((y + 1) * width + x) * 4] += (errR * 5) / 16;
+          output[((y + 1) * width + x) * 4 + 1] += (errG * 5) / 16;
+          output[((y + 1) * width + x) * 4 + 2] += (errB * 5) / 16;
 
           if (x > 0) {
             // 左下像素
-            output[((y + 1) * width + x - 1) * 4] += errR * 3 / 16;
-            output[((y + 1) * width + x - 1) * 4 + 1] += errG * 3 / 16;
-            output[((y + 1) * width + x - 1) * 4 + 2] += errB * 3 / 16;
+            output[((y + 1) * width + x - 1) * 4] += (errR * 3) / 16;
+            output[((y + 1) * width + x - 1) * 4 + 1] += (errG * 3) / 16;
+            output[((y + 1) * width + x - 1) * 4 + 2] += (errB * 3) / 16;
           }
         }
       }
@@ -157,7 +157,8 @@ const EnhancedPixelConverter = () => {
         const g = Math.sqrt(gx * gx + gy * gy);
 
         // 如果检测到边缘，增强边缘
-        if (g > 20) { // 阈值
+        if (g > 20) {
+          // 阈值
           // 增强边缘 - 使颜色更深
           output[idx] = Math.max(0, data[idx] - strength * 25);
           output[idx + 1] = Math.max(0, data[idx + 1] - strength * 25);
@@ -189,7 +190,9 @@ const EnhancedPixelConverter = () => {
 
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
-      let h, s, l = (max + min) / 2;
+      let h,
+        s,
+        l = (max + min) / 2;
 
       if (max === min) {
         h = s = 0; // 灰度
@@ -198,10 +201,17 @@ const EnhancedPixelConverter = () => {
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
         switch (max) {
-          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-          case g: h = (b - r) / d + 2; break;
-          case b: h = (r - g) / d + 4; break;
-          default: h = 0;
+          case r:
+            h = (g - b) / d + (g < b ? 6 : 0);
+            break;
+          case g:
+            h = (b - r) / d + 2;
+            break;
+          case b:
+            h = (r - g) / d + 4;
+            break;
+          default:
+            h = 0;
         }
 
         h /= 6;
@@ -292,10 +302,10 @@ const EnhancedPixelConverter = () => {
         imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const gbData = imgData.data;
         const gbPalette = [
-          [15, 56, 15],    // 最暗
-          [48, 98, 48],    // 暗
-          [139, 172, 15],  // 亮
-          [155, 188, 15]   // 最亮
+          [15, 56, 15], // 最暗
+          [48, 98, 48], // 暗
+          [139, 172, 15], // 亮
+          [155, 188, 15], // 最亮
         ];
 
         for (let i = 0; i < gbData.length; i += 4) {
@@ -325,7 +335,7 @@ const EnhancedPixelConverter = () => {
       case 'arcade':
         // 街机风格 - 鲜艳色彩和黑色轮廓
         adjustSaturation(ctx, 5); // 增加饱和度
-        enhanceEdges(ctx, 6);     // 强烈的边缘增强
+        enhanceEdges(ctx, 6); // 强烈的边缘增强
         break;
 
       case 'crt':
@@ -428,11 +438,7 @@ const EnhancedPixelConverter = () => {
       pixCtx.imageSmoothingEnabled = false;
 
       // 放大绘制回原始大小，从而产生像素效果
-      pixCtx.drawImage(
-        smallCanvas,
-        0, 0, smallCanvas.width, smallCanvas.height,
-        0, 0, img.width, img.height
-      );
+      pixCtx.drawImage(smallCanvas, 0, 0, smallCanvas.width, smallCanvas.height, 0, 0, img.width, img.height);
 
       // 应用后期效果
 
@@ -466,51 +472,40 @@ const EnhancedPixelConverter = () => {
   }, [originalImage, pixelSize, preBlur, postBlur, colorCount, ditheringLevel, pixelStyle, edgeEnhance, saturation]);
 
   return (
-    <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
       {originalImage && (
         <>
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex w-full flex-col gap-4 md:flex-row">
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">原始图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={originalCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">原始图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={originalCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">像素风格图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={pixelatedCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">像素风格图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={pixelatedCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2">
+          <div className="flex w-full flex-col gap-2">
             <label className="flex items-center gap-2">
               <span>像素风格:</span>
               <select
                 value={pixelStyle}
                 onChange={(e) => setPixelStyle(e.target.value)}
-                className="border rounded px-2 py-1"
+                className="rounded border px-2 py-1"
               >
                 <option value="sharp">锐利</option>
                 <option value="retro">复古</option>
@@ -621,7 +616,7 @@ const EnhancedPixelConverter = () => {
                 link.download = 'pixel_art_image.png';
                 link.click();
               }}
-              className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               下载像素风格图片
             </button>
@@ -632,4 +627,4 @@ const EnhancedPixelConverter = () => {
   );
 };
 
-export default EnhancedPixelConverter; 
+export default EnhancedPixelConverter;

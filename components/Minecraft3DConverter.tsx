@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import * as THREE from 'three';
-// @ts-ignore 
+// @ts-ignore
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 const Minecraft3DConverter = () => {
@@ -40,22 +40,25 @@ const Minecraft3DConverter = () => {
   // 量化颜色
   const quantizeColor = (r: number, g: number, b: number, colorCount: number): [number, number, number] => {
     const step = Math.floor(256 / Math.cbrt(colorCount));
-    return [
-      Math.floor(r / step) * step,
-      Math.floor(g / step) * step,
-      Math.floor(b / step) * step
-    ];
+    return [Math.floor(r / step) * step, Math.floor(g / step) * step, Math.floor(b / step) * step];
   };
 
   // 从图像中提取像素数据
-  const getPixelData = (img: HTMLImageElement, maxWidth: number = 100): {
+  const getPixelData = (
+    img: HTMLImageElement,
+    maxWidth: number = 100
+  ): {
     pixels: Array<{
-      r: number, g: number, b: number, a: number,
-      x: number, y: number,
-      brightness: number
-    }>,
-    width: number,
-    height: number
+      r: number;
+      g: number;
+      b: number;
+      a: number;
+      x: number;
+      y: number;
+      brightness: number;
+    }>;
+    width: number;
+    height: number;
   } => {
     // 创建临时画布
     const canvas = document.createElement('canvas');
@@ -83,9 +86,13 @@ const Minecraft3DConverter = () => {
 
     // 存储像素数据
     const pixels: Array<{
-      r: number, g: number, b: number, a: number,
-      x: number, y: number,
-      brightness: number
+      r: number;
+      g: number;
+      b: number;
+      a: number;
+      x: number;
+      y: number;
+      brightness: number;
     }> = [];
 
     // 按照指定块大小采样像素
@@ -117,7 +124,7 @@ const Minecraft3DConverter = () => {
             a,
             x: Math.floor(x / blockSizeScaled),
             y: Math.floor(y / blockSizeScaled),
-            brightness
+            brightness,
           });
         }
       }
@@ -126,7 +133,7 @@ const Minecraft3DConverter = () => {
     return {
       pixels,
       width: Math.ceil(width / blockSizeScaled),
-      height: Math.ceil(height / blockSizeScaled)
+      height: Math.ceil(height / blockSizeScaled),
     };
   };
 
@@ -214,7 +221,7 @@ const Minecraft3DConverter = () => {
         new THREE.MeshLambertMaterial({ map: topTexture }), // 顶
         new THREE.MeshLambertMaterial({ map: bottomTexture }), // 底
         new THREE.MeshLambertMaterial({ map: sideTexture }), // 前
-        new THREE.MeshLambertMaterial({ map: sideTexture }) // 后
+        new THREE.MeshLambertMaterial({ map: sideTexture }), // 后
       ];
     } else {
       // 使用纯色材质
@@ -224,7 +231,7 @@ const Minecraft3DConverter = () => {
         new THREE.MeshLambertMaterial({ color: baseColor.clone().multiplyScalar(1.15) }), // 顶
         new THREE.MeshLambertMaterial({ color: baseColor.clone().multiplyScalar(0.8) }), // 底
         new THREE.MeshLambertMaterial({ color: baseColor }), // 前
-        new THREE.MeshLambertMaterial({ color: baseColor }) // 后
+        new THREE.MeshLambertMaterial({ color: baseColor }), // 后
       ];
     }
 
@@ -235,10 +242,19 @@ const Minecraft3DConverter = () => {
   };
 
   // 创建3D模型
-  const createVoxelModel = (pixels: Array<{
-    r: number, g: number, b: number, a: number,
-    x: number, y: number, brightness: number
-  }>, imageWidth: number, imageHeight: number) => {
+  const createVoxelModel = (
+    pixels: Array<{
+      r: number;
+      g: number;
+      b: number;
+      a: number;
+      x: number;
+      y: number;
+      brightness: number;
+    }>,
+    imageWidth: number,
+    imageHeight: number
+  ) => {
     if (!sceneRef.current) return;
 
     // 清除现有场景内容
@@ -266,7 +282,9 @@ const Minecraft3DConverter = () => {
 
     if (heightMode === '3d') {
       // 初始化高度图
-      heightMap = Array(imageHeight).fill(0).map(() => Array(imageWidth).fill(0));
+      heightMap = Array(imageHeight)
+        .fill(0)
+        .map(() => Array(imageWidth).fill(0));
 
       // 填充高度图
       for (const pixel of pixels) {
@@ -275,10 +293,13 @@ const Minecraft3DConverter = () => {
     }
 
     // 组合实例化渲染的方块（提高性能）
-    const instanceGroups = new Map<string, {
-      instances: Array<{ x: number, y: number, z: number, height: number }>,
-      color: { r: number, g: number, b: number }
-    }>();
+    const instanceGroups = new Map<
+      string,
+      {
+        instances: Array<{ x: number; y: number; z: number; height: number }>;
+        color: { r: number; g: number; b: number };
+      }
+    >();
 
     // 准备实例化数据
     for (const pixel of pixels) {
@@ -287,7 +308,7 @@ const Minecraft3DConverter = () => {
       if (!instanceGroups.has(colorKey)) {
         instanceGroups.set(colorKey, {
           instances: [],
-          color: { r: pixel.r, g: pixel.g, b: pixel.b }
+          color: { r: pixel.r, g: pixel.g, b: pixel.b },
         });
       }
 
@@ -307,19 +328,13 @@ const Minecraft3DConverter = () => {
         x: pixel.x + offsetX,
         y: y,
         z: pixel.y + offsetZ,
-        height
+        height,
       });
     }
 
     // 逐个颜色组创建实例化网格
     for (const [colorKey, group] of instanceGroups.entries()) {
-      createMinecraftInstances(
-        sceneRef.current,
-        group.instances,
-        group.color.r,
-        group.color.g,
-        group.color.b
-      );
+      createMinecraftInstances(sceneRef.current, group.instances, group.color.r, group.color.g, group.color.b);
     }
 
     // 调整相机位置以适应模型大小
@@ -337,8 +352,10 @@ const Minecraft3DConverter = () => {
   // 创建实例化的Minecraft方块集合
   const createMinecraftInstances = (
     scene: THREE.Scene,
-    instances: Array<{ x: number, y: number, z: number, height: number }>,
-    r: number, g: number, b: number
+    instances: Array<{ x: number; y: number; z: number; height: number }>,
+    r: number,
+    g: number,
+    b: number
   ) => {
     if (instances.length === 0) return;
 
@@ -353,18 +370,19 @@ const Minecraft3DConverter = () => {
       const y = instance.y;
 
       // 创建标准方块
-      createMinecraftBlock(
-        scene, x, y, z, r, g, b,
-        instance.height, scale
-      );
+      createMinecraftBlock(scene, x, y, z, r, g, b, instance.height, scale);
     }
   };
 
   // 创建Minecraft风格的方块
   const createMinecraftBlock = (
     scene: THREE.Scene,
-    x: number, y: number, z: number,
-    r: number, g: number, b: number,
+    x: number,
+    y: number,
+    z: number,
+    r: number,
+    g: number,
+    b: number,
     height: number = 1,
     scale: number = 1
   ) => {
@@ -396,7 +414,7 @@ const Minecraft3DConverter = () => {
     const groundTexture = createMinecraftTexture('grass_top');
     const groundMaterial = new THREE.MeshLambertMaterial({
       map: groundTexture,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
     });
 
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -419,7 +437,7 @@ const Minecraft3DConverter = () => {
       new THREE.MeshLambertMaterial({ map: dirtTopTexture }), // top
       new THREE.MeshLambertMaterial({ map: dirtBottomTexture }), // bottom
       new THREE.MeshLambertMaterial({ map: dirtSideTexture }), // front
-      new THREE.MeshLambertMaterial({ map: dirtSideTexture }) // back
+      new THREE.MeshLambertMaterial({ map: dirtSideTexture }), // back
     ];
 
     const dirt = new THREE.Mesh(dirtGeometry, dirtMaterials);
@@ -427,7 +445,7 @@ const Minecraft3DConverter = () => {
     scene.add(dirt);
 
     // 添加天空颜色
-    const skyColor = new THREE.Color(0x87CEEB);
+    const skyColor = new THREE.Color(0x87ceeb);
     scene.background = skyColor;
 
     // 添加Minecraft风格的云层
@@ -545,7 +563,7 @@ const Minecraft3DConverter = () => {
       map: cloudTexture,
       transparent: true,
       opacity: 0.9,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
     });
 
     const cloudCount = Math.floor(worldSize / 20);
@@ -613,7 +631,7 @@ const Minecraft3DConverter = () => {
     // 创建渲染器
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
-      antialias: true
+      antialias: true,
     });
     renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -706,11 +724,11 @@ const Minecraft3DConverter = () => {
       materialsCache.current.clear();
 
       if (sceneRef.current) {
-        sceneRef.current.children.forEach(child => {
+        sceneRef.current.children.forEach((child) => {
           if (child instanceof THREE.Mesh) {
             child.geometry.dispose();
             if (Array.isArray(child.material)) {
-              child.material.forEach(material => material.dispose());
+              child.material.forEach((material) => material.dispose());
             } else {
               child.material.dispose();
             }
@@ -738,35 +756,27 @@ const Minecraft3DConverter = () => {
   };
 
   return (
-    <div className="w-full max-w-4xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-4xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
-      <div className="w-full aspect-[4/3] relative border rounded-lg overflow-hidden bg-gray-800">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-        />
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border bg-gray-800">
+        <canvas ref={canvasRef} className="h-full w-full" />
       </div>
 
-      <div className="w-full flex flex-col gap-3">
+      <div className="flex w-full flex-col gap-3">
         <label className="flex items-center gap-2">
           <span>方块模式:</span>
           <select
             value={heightMode}
             onChange={(e) => setHeightMode(e.target.value)}
-            className="border rounded px-2 py-1"
+            className="rounded border px-2 py-1"
           >
             <option value="flat">平面模式</option>
             <option value="heightmap">高度图模式</option>
@@ -854,33 +864,25 @@ const Minecraft3DConverter = () => {
           <span>{blockGap}%</span>
         </label>
 
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={useTextures}
-              onChange={(e) => setUseTextures(e.target.checked)}
-            />
+            <input type="checkbox" checked={useTextures} onChange={(e) => setUseTextures(e.target.checked)} />
             <span>使用方块纹理</span>
           </label>
 
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoRotate}
-              onChange={(e) => setAutoRotate(e.target.checked)}
-            />
+            <input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} />
             <span>自动旋转</span>
           </label>
         </div>
 
-        <div className="flex-grow text-sm text-gray-500 mt-2">
+        <div className="mt-2 flex-grow text-sm text-gray-500">
           <p>✓ 可用鼠标拖动旋转模型，滚轮缩放</p>
         </div>
 
         <button
           onClick={downloadScreenshot}
-          className="mt-2 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="mt-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
         >
           下载我的世界3D模型截图
         </button>
@@ -889,4 +891,4 @@ const Minecraft3DConverter = () => {
   );
 };
 
-export default Minecraft3DConverter; 
+export default Minecraft3DConverter;

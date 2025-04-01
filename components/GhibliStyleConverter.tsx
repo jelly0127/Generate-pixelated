@@ -117,23 +117,26 @@ const GhibliStyleConverter = () => {
         const right = (y * width + (x + 1)) * 4;
 
         // 计算差异
-        const diffR = Math.abs(origData[i] - origData[top]) +
+        const diffR =
+          Math.abs(origData[i] - origData[top]) +
           Math.abs(origData[i] - origData[bottom]) +
           Math.abs(origData[i] - origData[left]) +
           Math.abs(origData[i] - origData[right]);
 
-        const diffG = Math.abs(origData[i + 1] - origData[top + 1]) +
+        const diffG =
+          Math.abs(origData[i + 1] - origData[top + 1]) +
           Math.abs(origData[i + 1] - origData[bottom + 1]) +
           Math.abs(origData[i + 1] - origData[left + 1]) +
           Math.abs(origData[i + 1] - origData[right + 1]);
 
-        const diffB = Math.abs(origData[i + 2] - origData[top + 2]) +
+        const diffB =
+          Math.abs(origData[i + 2] - origData[top + 2]) +
           Math.abs(origData[i + 2] - origData[bottom + 2]) +
           Math.abs(origData[i + 2] - origData[left + 2]) +
           Math.abs(origData[i + 2] - origData[right + 2]);
 
         // 检测边缘
-        const threshold = 150 - (detailLevel * 10);
+        const threshold = 150 - detailLevel * 10;
         if (diffR + diffG + diffB > threshold) {
           // 在边缘处增强对比度
           data[i] = Math.max(0, data[i] - 30);
@@ -141,7 +144,7 @@ const GhibliStyleConverter = () => {
           data[i + 2] = Math.max(0, data[i + 2] - 30);
         } else {
           // 非边缘区域稍微简化
-          const factor = 0.95 + (detailLevel * 0.005);
+          const factor = 0.95 + detailLevel * 0.005;
           data[i] = data[i] * factor;
           data[i + 1] = data[i + 1] * factor;
           data[i + 2] = data[i + 2] * factor;
@@ -220,7 +223,7 @@ const GhibliStyleConverter = () => {
       // 增强高光区域的柔和感
       if (brightness > 200) {
         // 柔化高光
-        const factor = 1 - (styleIntensity / 20);
+        const factor = 1 - styleIntensity / 20;
         data[i] = data[i] * factor + brightness * (1 - factor);
         data[i + 1] = data[i + 1] * factor + brightness * (1 - factor);
         data[i + 2] = data[i + 2] * factor + brightness * (1 - factor);
@@ -230,7 +233,7 @@ const GhibliStyleConverter = () => {
       else if (brightness > 100) {
         // 增强饱和度
         const avg = brightness;
-        const factor = 1 + (styleIntensity / 20);
+        const factor = 1 + styleIntensity / 20;
         data[i] = Math.min(255, (data[i] - avg) * factor + avg);
         data[i + 1] = Math.min(255, (data[i + 1] - avg) * factor + avg);
         data[i + 2] = Math.min(255, (data[i + 2] - avg) * factor + avg);
@@ -282,13 +285,7 @@ const GhibliStyleConverter = () => {
       styledCtx.drawImage(img, 0, 0, img.width, img.height);
 
       // 应用吉卜力风格处理
-      applyGhibliStyle(
-        styledCtx,
-        styleIntensity,
-        colorMode,
-        detailLevel,
-        backgroundIntensity
-      );
+      applyGhibliStyle(styledCtx, styleIntensity, colorMode, detailLevel, backgroundIntensity);
 
       // 保存风格化图像
       setStyledImage(styledCanvas.toDataURL());
@@ -297,51 +294,40 @@ const GhibliStyleConverter = () => {
   }, [originalImage, styleIntensity, colorMode, detailLevel, backgroundIntensity]);
 
   return (
-    <div className="w-full max-w-3xl flex flex-col items-center gap-6">
+    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
       <div className="w-full">
         <input
           type="file"
           accept="image/*"
           onChange={handleImageUpload}
-          className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-md file:border-0
-                    file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
         />
       </div>
 
       {originalImage && (
         <>
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          <div className="flex w-full flex-col gap-4 md:flex-row">
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">原始图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={originalCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">原始图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={originalCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-medium mb-2">吉卜力风格图片</h2>
-              <div className="overflow-hidden border rounded-lg">
-                <canvas
-                  ref={styledCanvasRef}
-                  className="max-w-full h-auto"
-                />
+              <h2 className="mb-2 text-lg font-medium">吉卜力风格图片</h2>
+              <div className="overflow-hidden rounded-lg border">
+                <canvas ref={styledCanvasRef} className="h-auto max-w-full" />
               </div>
             </div>
           </div>
 
-          <div className="w-full flex flex-col gap-2">
+          <div className="flex w-full flex-col gap-2">
             <label className="flex items-center gap-2">
               <span>风格类型:</span>
               <select
                 value={colorMode}
                 onChange={(e) => setColorMode(e.target.value)}
-                className="border rounded px-2 py-1"
+                className="rounded border px-2 py-1"
               >
                 <option value="warm">暖色调 (红猪/哈尔)</option>
                 <option value="nature">自然色调 (龙猫/千与千寻)</option>
@@ -397,7 +383,7 @@ const GhibliStyleConverter = () => {
                 link.download = 'ghibli_style_image.png';
                 link.click();
               }}
-              className="mt-4 py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               下载吉卜力风格图片
             </button>
@@ -408,4 +394,4 @@ const GhibliStyleConverter = () => {
   );
 };
 
-export default GhibliStyleConverter; 
+export default GhibliStyleConverter;
