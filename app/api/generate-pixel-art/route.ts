@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     console.log('图像分析完成, 长度:', imageAnalysis.length);
 
     // 检查分析结果是否完整
-    if (imageAnalysis.length < 200) {
+    if (imageAnalysis.length < 20) {
       console.error('图像分析结果不完整，使用备用描述');
 
       // 使用备用描述生成图像
