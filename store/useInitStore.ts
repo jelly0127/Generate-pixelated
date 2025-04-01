@@ -1,13 +1,9 @@
-import { UserInfoType } from '@/types/type';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 interface InitData {
   serverTimer: Date;
   setServerTime: (serverTime: Date) => void;
-
-  userInfo: UserInfoType;
-  updatedUserInfo: (newUserInfo: Partial<UserInfoType>) => void;
 
   initLoading: boolean;
   updateInitLoading: (initLoading: boolean) => void;

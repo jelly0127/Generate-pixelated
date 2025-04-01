@@ -7,10 +7,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id        String   @id @default(cuid())
-  nikaname  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isDeleted Boolean  @default(false)
+// 添加MAC地址请求限制表
+model MacAddressLimit {
+  id                Int      @id @default(autoincrement())
+  macAddress        String   @unique
+  dailyRequestCount Int      @default(0)
+  lastRequestDate   DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([macAddress])
 }
