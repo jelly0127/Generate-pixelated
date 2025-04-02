@@ -13,7 +13,7 @@ const openai = new OpenAI({
 // Daily request limit
 const DAILY_REQUEST_LIMIT = 5;
 const GLOBAL_RATE_LIMIT_PER_MINUTE = 30;
-const USER_REQUEST_INTERVAL_MS = 30 * 1000; // 30 seconds in milliseconds
+const USER_REQUEST_INTERVAL_MS = 15 * 1000; // 15 seconds in milliseconds
 
 // Enhanced retry function
 const retryWithDelay = async <T>(

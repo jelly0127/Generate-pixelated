@@ -11,8 +11,9 @@ const PixelArtGenerator = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [style, setStyle] = useState<string>('minecraft');
   const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
-  // 转换图像为PNG并限制大小
+
   const convertToPng = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = document.createElement('img');
@@ -231,44 +232,31 @@ const PixelArtGenerator = () => {
     }
   };
 
-  const downloadImage = () => {
-    if (!generatedImage) return;
+  const downloadImage = async () => {
+    if (!generatedImage || downloading) return;
 
-    // 创建一个canvas进行裁剪
-    const canvas = document.createElement('canvas');
-    const img = document.createElement('img');
+    try {
+      setDownloading(true);
 
-    img.onload = () => {
-      // 设置canvas大小为128x128作为标准头像尺寸
-      canvas.width = 128;
-      canvas.height = 128;
+      // fetch the image from the server
+      const response = await axios.post('/api/download-image', { imageUrl: generatedImage }, { responseType: 'blob' });
 
-      const ctx = canvas.getContext('2d');
-
-      // 居中裁剪
-      const size = Math.min(img.width, img.height);
-      const offsetX = (img.width - size) / 2;
-      const offsetY = (img.height - size) / 2;
-
-      // 绘制图像居中部分
-      ctx?.drawImage(img, offsetX, offsetY, size, size, 0, 0, 128, 128);
-
-      // 创建下载链接
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `pixel_art_avatar.png`;
-          link.click();
-
-          // 清理
-          setTimeout(() => URL.revokeObjectURL(url), 100);
-        }
-      });
-    };
-
-    img.src = generatedImage;
+      // create a download link
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pixel_art.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // if download failed, open the image in a new tab
+      window.open(generatedImage, '_blank');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -316,25 +304,14 @@ const PixelArtGenerator = () => {
               <div className="flex items-center justify-center overflow-hidden rounded-lg border border-gray-200">
                 <img src={generatedImage} alt="Generated" className="h-auto w-full max-w-[200px] rounded" />
               </div>
-              {/* Download Buttons */}
-              <div className="flex gap-3">
+              {/* Download Button */}
+              <div className="flex justify-center">
                 <button
                   onClick={downloadImage}
-                  className="flex-1 rounded-lg flex flex-col items-center justify-center bg-[#F8D66D] px-4 py-2 text-black transition-colors hover:bg-[#f4c84d]"
+                  disabled={downloading}
+                  className="w-full rounded-lg bg-[#F8D66D] px-4 py-2 text-black transition-colors hover:bg-[#f4c84d] disabled:bg-gray-200 disabled:text-gray-500"
                 >
-                  Download
-                  <span className='text-xs'>128x128</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = generatedImage;
-                    link.download = `pixel_art_original.png`;
-                    link.click();
-                  }}
-                  className="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
-                >
-                  Download Original
+                  {downloading ? 'Downloading...' : 'Download Image'}
                 </button>
               </div>
             </div>
@@ -377,7 +354,7 @@ const PixelArtGenerator = () => {
               </div>
             )}
 
-            {/* Generate Button - 移到右边卡片中 */}
+            {/* Generate Button */}
             <button
               onClick={generateImage}
               disabled={loading || !uploadedFile}
