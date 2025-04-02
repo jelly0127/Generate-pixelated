@@ -13,7 +13,6 @@ const openai = new OpenAI({
 // Daily request limit
 const DAILY_REQUEST_LIMIT = 5;
 const GLOBAL_RATE_LIMIT_PER_MINUTE = 15;
-const USER_REQUEST_INTERVAL_MS = 30 * 1000; // 15 seconds in milliseconds
 
 // Enhanced retry function
 const retryWithDelay = async <T>(
@@ -56,53 +55,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unable to identify device, please provide MAC address' }, { status: 400 });
     }
 
-    // === New: Check global rate limit ===
-    const now = new Date();
-    let globalLimit = await prisma.apiRateLimit.findUnique({
-      where: { id: 'global' },
-    });
-
-    // Create a record if it doesn't exist
-    if (!globalLimit) {
-      globalLimit = await prisma.apiRateLimit.create({
-        data: { id: 'global', requestCount: 0, windowStartTime: now },
-      });
-    }
-
-    // Check if time window has expired (if it's a new minute)
-    const windowDuration = 60 * 1000; // 1 minute
-    const windowExpired = now.getTime() - globalLimit.windowStartTime.getTime() > windowDuration;
-
-    // Reset or increment counter
-    if (windowExpired) {
-      await prisma.apiRateLimit.update({
-        where: { id: 'global' },
-        data: { requestCount: 1, windowStartTime: now },
-      });
-    } else if (globalLimit.requestCount >= GLOBAL_RATE_LIMIT_PER_MINUTE) {
-      // Current minute requests reached limit
-      return NextResponse.json(
-        {
-          error: 'Server is busy, please try again later',
-          retryAfter: Math.ceil((globalLimit.windowStartTime.getTime() + windowDuration - now.getTime()) / 1000),
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': Math.ceil(
-              (globalLimit.windowStartTime.getTime() + windowDuration - now.getTime()) / 1000
-            ).toString(),
-          },
-        }
-      );
-    } else {
-      // Increment counter
-      await prisma.apiRateLimit.update({
-        where: { id: 'global' },
-        data: { requestCount: globalLimit.requestCount + 1 },
-      });
-    }
-
     // Check MAC address daily request limit and user-level rate limit
     let macRecord = await prisma.macAddressLimit.findUnique({
       where: { macAddress },
@@ -113,19 +65,6 @@ export async function POST(request: Request) {
       macRecord = await prisma.macAddressLimit.create({
         data: { macAddress, dailyRequestCount: 0 },
       });
-    }
-
-    // === New: Check user request interval ===
-    const timeSinceLastRequest = now.getTime() - macRecord.lastRequestTime.getTime();
-    if (timeSinceLastRequest < USER_REQUEST_INTERVAL_MS) {
-      const waitTime = Math.ceil((USER_REQUEST_INTERVAL_MS - timeSinceLastRequest) / 1000);
-      return NextResponse.json(
-        {
-          error: `Please wait ${waitTime} seconds before next request`,
-          retryAfter: waitTime,
-        },
-        { status: 429 }
-      );
     }
 
     // Check if daily limit exceeded
@@ -182,6 +121,40 @@ export async function POST(request: Request) {
     // Use more objective system prompt in image analysis
     const visionAnalysis = await retryWithDelay(
       async () => {
+        // === 在这里检查全局速率限制 ===
+        const now = new Date();
+        let globalLimit = await prisma.apiRateLimit.findUnique({
+          where: { id: 'global' },
+        });
+
+        // Create a record if it doesn't exist
+        if (!globalLimit) {
+          globalLimit = await prisma.apiRateLimit.create({
+            data: { id: 'global', requestCount: 0, windowStartTime: now },
+          });
+        }
+
+        // Check if time window has expired (if it's a new minute)
+        const windowDuration = 60 * 1000; // 1 minute
+        const windowExpired = now.getTime() - globalLimit.windowStartTime.getTime() > windowDuration;
+
+        // Reset or increment counter
+        if (windowExpired) {
+          await prisma.apiRateLimit.update({
+            where: { id: 'global' },
+            data: { requestCount: 1, windowStartTime: now },
+          });
+        } else if (globalLimit.requestCount >= GLOBAL_RATE_LIMIT_PER_MINUTE) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        } else {
+          // Increment counter
+          await prisma.apiRateLimit.update({
+            where: { id: 'global' },
+            data: { requestCount: globalLimit.requestCount + 1 },
+          });
+        }
+
+        // 调用 GPT API
         return await openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
@@ -191,7 +164,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: 'text',
-                  text: 'Please objectively describe the visual elements of this image, without detailed analysis of people, just describe colors, composition, and basic style characteristics.',
+                  text: 'Please objectively describe the visual elements of this image...',
                 },
                 {
                   type: 'image_url',
@@ -202,8 +175,8 @@ export async function POST(request: Request) {
               ],
             },
           ],
-          max_tokens: 1000, // Reduce token count
-          temperature: 0.3, // Lower temperature for more deterministic responses
+          max_tokens: 1000,
+          temperature: 0.3,
         });
       },
       3,
@@ -275,7 +248,6 @@ This avatar will be used directly as a user profile picture, ensure it's a clean
           data: {
             dailyRequestCount: macRecord.dailyRequestCount + 1,
             lastRequestDate: new Date(),
-            lastRequestTime: new Date(), // Update last request time
           },
         });
         console.log('Minecraft style image generation successful');
@@ -333,7 +305,6 @@ The final product must be a single, complete, standalone Minecraft-style charact
         data: {
           dailyRequestCount: macRecord.dailyRequestCount + 1,
           lastRequestDate: new Date(),
-          lastRequestTime: new Date(),
         },
       });
 

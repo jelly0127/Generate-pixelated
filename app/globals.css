@@ -55,3 +55,16 @@ body {
 .react-datepicker__day--disabled {
   color: #474d57 !important;
 }
+
+@keyframes progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-progress {
+  animation: progress 2s linear infinite;
+}

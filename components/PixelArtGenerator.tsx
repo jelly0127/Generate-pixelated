@@ -12,7 +12,8 @@ const PixelArtGenerator = () => {
   const [style, setStyle] = useState<string>('minecraft');
   const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
   const [downloading, setDownloading] = useState(false);
-
+  const [queueStatus, setQueueStatus] = useState<string>('');
+  const [uploadTip, setUploadTip] = useState<boolean>(false);
 
   const convertToPng = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -91,6 +92,8 @@ const PixelArtGenerator = () => {
 
     // 保存文件
     setUploadedFile(file);
+    // 显示提示信息
+    setUploadTip(true);
   };
 
   const getDeviceIdentifier = async () => {
@@ -191,17 +194,19 @@ const PixelArtGenerator = () => {
       return;
     }
 
+    setUploadTip(false); // 隐藏上传提示
     setLoading(true);
     setError(null);
+    setQueueStatus('Your request is in queue. The entire process takes about 2 minutes...');
 
     try {
-      // 获取设备ID
       const deviceId = await getDeviceIdentifier();
-
-      // 转换为PNG格式并限制大小
       const pngFile = await convertToPng(uploadedFile);
 
-      // 创建FormData对象直接发送文件
+      // 更新状态提示
+      setQueueStatus('Analyzing your image...');
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // 让状态显示更自然
+
       const formData = new FormData();
       formData.append('image', pngFile);
       formData.append('style', style);
@@ -209,17 +214,16 @@ const PixelArtGenerator = () => {
       const response = await axios.post('/api/generate-pixel-art', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'X-MAC-Address': deviceId, // 添加设备ID作为MAC地址
+          'X-MAC-Address': deviceId,
         },
       });
 
       if (response.data && response.data.imageUrl) {
         setGeneratedImage(response.data.imageUrl);
-
-        // 显示剩余请求次数
         if (response.data.remainingRequests !== undefined) {
           setRemainingRequests(response.data.remainingRequests);
         }
+        setQueueStatus(''); // 清除状态提示
       } else {
         setError('image generation failed');
       }
@@ -332,6 +336,7 @@ const PixelArtGenerator = () => {
             <h2 className="mb-4 text-2xl font-semibold">Upload Your Photo</h2>
             <p className="mb-6">Merge your photo with pixel art style</p>
 
+            {/* 上传按钮 */}
             <button
               onClick={() => document.getElementById('fileInput')?.click()}
               className="mb-6 flex items-center gap-2 rounded-full bg-[#F8D66D] px-6 py-3 text-black transition-colors hover:bg-[#f4c84d]"
@@ -354,16 +359,37 @@ const PixelArtGenerator = () => {
               </div>
             )}
 
-            {/* Generate Button */}
-            <button
-              onClick={generateImage}
-              disabled={loading || !uploadedFile}
-              className="w-full rounded-lg bg-[#F8D66D] py-3 font-medium text-black transition-colors hover:bg-[#f4c84d] disabled:bg-gray-200 disabled:text-gray-500"
-            >
-              {loading ? 'Generating...' : 'Generate Pixel Art'}
-            </button>
+            {/* 上传后的提示信息 */}
+            {uploadTip && (
+              <div className="mb-4 text-center text-white">
+                <p className="mb-2">✨ Image uploaded successfully!</p>
+                <p className="text-sm opacity-80">The generation process will take about 2 minutes.</p>
+                <p className="text-sm opacity-80">Please click the Generate button to start.</p>
+              </div>
+            )}
 
-            {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
+            {/* Generate Button */}
+            <div className="space-y-4">
+              <button
+                onClick={generateImage}
+                disabled={loading || !uploadedFile}
+                className="w-full rounded-lg bg-[#F8D66D] px-4 py-3 font-medium text-black transition-colors hover:bg-[#f4c84d] disabled:bg-gray-200 disabled:text-gray-500"
+              >
+                {loading ? 'Generating...' : 'Generate Pixel Art'}
+              </button>
+
+              {/* 生成过程中的状态提示 */}
+              {loading && queueStatus && (
+                <div className="mt-4 text-center">
+                  <div className="mb-2 text-white">{queueStatus}</div>
+                  <div className="mx-auto h-1 w-full max-w-[200px] overflow-hidden rounded-full bg-gray-200">
+                    <div className="animate-progress h-full w-full bg-[#F8D66D]"></div>
+                  </div>
+                </div>
+              )}
+
+              {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
+            </div>
           </div>
         </div>
       </div>
