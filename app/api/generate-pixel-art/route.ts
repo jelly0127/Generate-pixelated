@@ -5,34 +5,36 @@ import path from 'path';
 import os from 'os';
 import { prisma } from '@/lib/db';
 
-// 初始化OpenAI客户端
+// init OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 每日请求限制
+// Daily request limit
 const DAILY_REQUEST_LIMIT = 5;
+const GLOBAL_RATE_LIMIT_PER_MINUTE = 30;
+const USER_REQUEST_INTERVAL_MS = 30 * 1000; // 30 seconds in milliseconds
 
-// 增强版重试函数
+// Enhanced retry function
 const retryWithDelay = async <T>(
   fn: () => Promise<T>,
-  retries: number = 5, // 增加重试次数到5次
-  initialDelay: number = 2000, // 初始延迟2秒
-  maxDelay: number = 10000 // 最大延迟10秒
+  retries: number = 5, // Increase retries to 5 times
+  initialDelay: number = 2000, // Initial delay 2 seconds
+  maxDelay: number = 10000 // Maximum delay 10 seconds
 ): Promise<T> => {
   let lastError;
   for (let i = 0; i < retries; i++) {
     try {
-      // 设置超时
+      // Set timeout
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 30000); // 30秒超时
+        setTimeout(() => reject(new Error('Request timeout')), 30000); // 30 seconds timeout
       });
       const resultPromise = fn();
       return (await Promise.race([resultPromise, timeoutPromise])) as T;
     } catch (error) {
       lastError = error;
-      console.log(`重试第 ${i + 1} 次失败，等待重试...`);
-      // 指数退避延迟
+      console.log(`Retry ${i + 1} failed, waiting...`);
+      // Exponential backoff delay
       const delay = Math.min(initialDelay * Math.pow(2, i), maxDelay);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -41,39 +43,99 @@ const retryWithDelay = async <T>(
 };
 
 export async function POST(request: Request) {
-  console.log('========== 像素化图像API请求开始 ==========');
+  console.log('========== Pixel Art API Request Start ==========');
 
   let tempFilePath = '';
 
   try {
-    // 获取MAC地址
+    // Get MAC address
     const macAddress = request.headers.get('x-mac-address') || 'unknown';
-    console.log('请求MAC地址:', macAddress);
+    console.log('Request MAC address:', macAddress);
 
     if (macAddress === 'unknown') {
-      return NextResponse.json({ error: '无法识别设备，请提供MAC地址' }, { status: 400 });
+      return NextResponse.json({ error: 'Unable to identify device, please provide MAC address' }, { status: 400 });
     }
 
-    // 检查MAC地址每日请求限制
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // === New: Check global rate limit ===
+    const now = new Date();
+    let globalLimit = await prisma.apiRateLimit.findUnique({
+      where: { id: 'global' },
+    });
 
+    // Create a record if it doesn't exist
+    if (!globalLimit) {
+      globalLimit = await prisma.apiRateLimit.create({
+        data: { id: 'global', requestCount: 0, windowStartTime: now },
+      });
+    }
+
+    // Check if time window has expired (if it's a new minute)
+    const windowDuration = 60 * 1000; // 1 minute
+    const windowExpired = now.getTime() - globalLimit.windowStartTime.getTime() > windowDuration;
+
+    // Reset or increment counter
+    if (windowExpired) {
+      await prisma.apiRateLimit.update({
+        where: { id: 'global' },
+        data: { requestCount: 1, windowStartTime: now },
+      });
+    } else if (globalLimit.requestCount >= GLOBAL_RATE_LIMIT_PER_MINUTE) {
+      // Current minute requests reached limit
+      return NextResponse.json(
+        {
+          error: 'Server is busy, please try again later',
+          retryAfter: Math.ceil((globalLimit.windowStartTime.getTime() + windowDuration - now.getTime()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': Math.ceil(
+              (globalLimit.windowStartTime.getTime() + windowDuration - now.getTime()) / 1000
+            ).toString(),
+          },
+        }
+      );
+    } else {
+      // Increment counter
+      await prisma.apiRateLimit.update({
+        where: { id: 'global' },
+        data: { requestCount: globalLimit.requestCount + 1 },
+      });
+    }
+
+    // Check MAC address daily request limit and user-level rate limit
     let macRecord = await prisma.macAddressLimit.findUnique({
       where: { macAddress },
     });
 
-    // 如果记录不存在，创建新记录
+    // Create new record if it doesn't exist
     if (!macRecord) {
       macRecord = await prisma.macAddressLimit.create({
         data: { macAddress, dailyRequestCount: 0 },
       });
     }
 
-    // 检查是否超过每日限制
+    // === New: Check user request interval ===
+    const timeSinceLastRequest = now.getTime() - macRecord.lastRequestTime.getTime();
+    if (timeSinceLastRequest < USER_REQUEST_INTERVAL_MS) {
+      const waitTime = Math.ceil((USER_REQUEST_INTERVAL_MS - timeSinceLastRequest) / 1000);
+      return NextResponse.json(
+        {
+          error: `Please wait ${waitTime} seconds before next request`,
+          retryAfter: waitTime,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Check if daily limit exceeded
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     if (macRecord.dailyRequestCount >= DAILY_REQUEST_LIMIT) {
       return NextResponse.json(
         {
-          error: `已达到每日请求限制(${DAILY_REQUEST_LIMIT}次)，请明天再试`,
+          error: `Daily request limit reached (${DAILY_REQUEST_LIMIT} requests), please try again tomorrow`,
         },
         { status: 429 }
       );
@@ -83,21 +145,21 @@ export async function POST(request: Request) {
     const imageFile = formData.get('image') as File;
 
     if (!imageFile) {
-      return NextResponse.json({ error: '缺少图像文件' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing image file' }, { status: 400 });
     }
 
-    // 验证文件大小（4MB）
+    // Validate file size (4MB)
     if (imageFile.size > 4 * 1024 * 1024) {
-      return NextResponse.json({ error: '图片大小不能超过4MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Image size cannot exceed 4MB' }, { status: 400 });
     }
 
-    console.log('图像信息:', {
+    console.log('Image information:', {
       name: imageFile.name,
       type: imageFile.type,
       size: `${(imageFile.size / 1024).toFixed(2)} KB`,
     });
 
-    // 临时保存文件
+    // Save file temporarily
     const arrayBuffer = await imageFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -105,21 +167,19 @@ export async function POST(request: Request) {
     tempFilePath = path.join(tempDir, `upload-${Date.now()}.png`);
     fs.writeFileSync(tempFilePath, buffer);
 
-    console.log('临时文件已创建:', tempFilePath);
+    console.log('Temporary file created:', tempFilePath);
 
-    // 修改系统提示，使分析更详细
-    const systemPrompt = `你是一个专业的图像分析专家。请详细分析图片中的人物特征，包括：
-    1. 面部特征（眼睛形状和颜色、鼻子、嘴唇颜色和形状、肤色、脸型等）
-    2. 发型（长度、颜色、质地、发型风格、刘海等）
-    3. 服装（款式、颜色、材质、领口形状等）
-    4. 配饰（项链、耳环、发饰、蝴蝶结等及其颜色和位置）
-    5. 纹身或其他特殊标记（位置、图案、颜色）
-    6. 整体姿态、表情和氛围
+    // Modify image analysis section
+    const systemPrompt = `You are a professional image analysis expert. Please objectively describe the elements in the image, including:
+    1. Colors (main colors, tone, brightness)
+    2. Layout and composition (subject position, background)
+    3. Style characteristics (photo, anime, painting, etc.)
+    4. Objects and environment (if recognizable)
 
-    请使用具体的色彩描述（如"浅棕色"而非"棕色"）和精确的形容词。这些描述将用于生成Minecraft风格的像素头像，必须极其详尽准确。
-    描述应包含至少300个字符，细致描述每个重要特征。`;
+    Please maintain objective descriptions and avoid subjective judgments. If you see people, only describe basic outlines and color characteristics, such as "there is a human figure, with main color tones of...".
+    This description will be used to generate Minecraft-style pixel art.`;
 
-    // 在分析图像部分使用更详细的系统提示
+    // Use more objective system prompt in image analysis
     const visionAnalysis = await retryWithDelay(
       async () => {
         return await openai.chat.completions.create({
@@ -131,7 +191,7 @@ export async function POST(request: Request) {
               content: [
                 {
                   type: 'text',
-                  text: '请极其详细地分析这张图片中的所有细节，尤其关注面部特征、发饰和纹身。这将用于生成高度相似的Minecraft风格像素头像。',
+                  text: 'Please objectively describe the visual elements of this image, without detailed analysis of people, just describe colors, composition, and basic style characteristics.',
                 },
                 {
                   type: 'image_url',
@@ -142,8 +202,8 @@ export async function POST(request: Request) {
               ],
             },
           ],
-          max_tokens: 4000,
-          temperature: 0.5, // 降低温度确保更准确的描述
+          max_tokens: 1000, // Reduce token count
+          temperature: 0.3, // Lower temperature for more deterministic responses
         });
       },
       3,
@@ -151,90 +211,106 @@ export async function POST(request: Request) {
     );
 
     const imageAnalysis = visionAnalysis.choices[0].message.content || '';
-    console.log('图像分析完成, 内容:', imageAnalysis);
-    console.log('图像分析完成, 长度:', imageAnalysis.length);
+    console.log('Image analysis completed, content:', imageAnalysis);
+    console.log('Image analysis completed, length:', imageAnalysis.length);
 
-    // 检查分析结果是否完整
-    if (imageAnalysis.length < 50) {
-      console.error('图像分析结果不完整，使用备用描述');
+    // Backup description function
+    const getBackupDescription = () => {
+      const backupDescriptions = [
+        'Young character figure, main color tones are orange and blue, simple background. Minecraft style should maintain distinct pixel block characteristics, preserving basic outline and main color tones.',
+        'Pixel style character, rich in colors, mainly composed of blocks. Maintain common 8x8 or 16x16 pixel style from Minecraft games, with vibrant colors.',
+        "Game style character, using bright main color tones, distinct pixels. Should present Minecraft's signature block composition with clear outlines.",
+      ];
 
-      // 使用备用描述生成图像
-      const prompt = `创建一个单一的Minecraft风格正面头像，就像游戏中的用户头像一样:
+      // Randomly select a description
+      return backupDescriptions[Math.floor(Math.random() * backupDescriptions.length)];
+    };
 
-${imageAnalysis}
+    // Check if analysis result is complete
+    if (imageAnalysis.length < 50 || imageAnalysis.includes('sorry') || imageAnalysis.includes('unable')) {
+      console.log('Image analysis result incomplete or rejected, using backup description');
 
-严格要求:
-- 只生成一个正面视角的头像，像Minecraft用户头像
-- 图像必须是正方形，只显示头部和肩部,上半身
-- 禁止多视角，禁止侧面图，禁止3D展示
-- 禁止任何参考图、色板、箭头或标签
-- 禁止分割画面，必须只有一个单一的头像图像
-- 背景应该是简单纯色或透明
+      // Use random backup description
+      const backupDescription = getBackupDescription();
 
-头像设计:
-- 使用16x16或32x32像素的经典Minecraft头像风格
-- 像素必须清晰可见，每个像素是方形的
-- 头部应该占据图像的主要部分
-- 确保保留蝴蝶发饰等原图中的重要特征
-- 使用Minecraft风格的有限调色板
+      // Generate image using backup description
+      const prompt = `Create a single Minecraft-style front-facing avatar, as a game user avatar:
 
-这个头像将直接用作用户的个人资料图片，请确保它是一个干净、单一的正面头像图像，没有任何额外元素。`;
+${backupDescription}
 
-      console.log('使用DALL-E 3生成Minecraft风格像素艺术...');
+Strict requirements:
+- Generate only one front-view avatar, like a Minecraft user avatar
+- Image must be square, showing only head and shoulders, upper body
+- No multiple angles, no side views, no 3D display
+- No reference images, color palettes, arrows, or labels
+- No split screens, must be a single avatar image only
+- Background should be simple solid color or transparent
+
+Avatar design:
+- Use classic Minecraft avatar style of 16x16 or 32x32 pixels
+- Pixels must be clearly visible, each pixel is square
+- Head should occupy the main portion of the image
+- Use limited Minecraft-style color palette
+- Include only one complete avatar, no other elements
+
+This avatar will be used directly as a user profile picture, ensure it's a clean, single front-facing avatar image without any extra elements.`;
+
+      console.log('Using DALL-E 3 to generate Minecraft-style pixel art...');
       const result = await retryWithDelay(
         async () =>
           await openai.images.generate({
             model: 'dall-e-3',
             prompt: prompt,
             n: 1,
-            size: '1024x1024',
-            quality: 'hd',
+            size: '1024x1024', // Reduce image size, more suitable for avatars
+            quality: 'standard', // Use standard quality to speed up generation
             style: 'vivid',
           }),
-        5 // 5次重试
+        5 // 5 retries
       );
       if (result.data[0].url) {
-        // 更新请求计数
+        // Update request count
         await prisma.macAddressLimit.update({
           where: { macAddress },
           data: {
             dailyRequestCount: macRecord.dailyRequestCount + 1,
             lastRequestDate: new Date(),
+            lastRequestTime: new Date(), // Update last request time
           },
         });
-        console.log('Minecraft风格图像生成成功');
+        console.log('Minecraft style image generation successful');
         return NextResponse.json({
           imageUrl: result.data[0].url,
           remainingRequests: DAILY_REQUEST_LIMIT - (macRecord.dailyRequestCount + 1),
         });
       } else {
-        console.error('Minecraft风格图像生成失败');
-        return NextResponse.json({ error: '图像处理失败' }, { status: 500 });
+        console.error('Minecraft style image generation failed');
+        return NextResponse.json({ error: 'Image processing failed' }, { status: 500 });
       }
     } else {
-      // 强化版提示词，专注于单一头像生成
-      const prompt = `创建一张干净的方形Minecraft风格像素头像，不含任何额外元素:
+      // Enhanced prompt focusing on single avatar generation
+      const prompt = `Create a clean square Minecraft-style pixel avatar without any extra elements:
 
 ${imageAnalysis}
 
-【重要】这是用于头像的最终成品图，必须遵循以下要求:
-1. 整个图像中必须只有一个主体人物头像，不能有任何其他视图或参考元素
-2. 绝对禁止生成任何色板、参考图、设计元素、UI界面或分割线
-3. 绝对禁止在画面任何部分包含箭头、标签、文字说明或辅助图形
-4. 绝对禁止将图像分割为多个部分或多个视角
-5. 背景必须是单一纯色，没有任何图案或渐变
-6. 必须是完整的作品，直接可用作头像，无需任何裁剪
+[IMPORTANT] This is the final product for an avatar, must follow these requirements:
+1. The entire image must contain only one main character avatar, no other views or reference elements
+2. Absolutely no color palettes, reference images, design elements, UI interfaces, or dividing lines
+3. Absolutely no arrows, labels, text explanations, or auxiliary graphics anywhere in the image
+4. Absolutely no splitting the image into multiple parts or multiple angles
+5. Background must be a single solid color, no patterns or gradients
+6. Must be a complete work, directly usable as an avatar, no cropping needed
 
-Minecraft风格要求:
-1. 使用清晰的像素方块表现，像Minecraft皮肤那样
-2. 面部细节要精确（眼睛、嘴唇与原图高度相似）
-3. 如蝴蝶发饰必须准确表现，包括颜色和位置
-4. 头发颜色和风格必须与原图匹配
-5. 如项链和纹身细节要保留，但用像素风格表现
+Minecraft style requirements:
+1. Use clear pixel blocks for representation, like Minecraft skins
+2. Facial details must be precise (eyes, lips highly similar to original)
+3. Accessories like butterfly hairpins must be accurately represented, including color and position
+4. Hair color and style must match the original
+5. Details like necklaces and tattoos should be preserved but represented in pixel style
 
-最终成品必须是单一的、完整的、独立的Minecraft风格人物头像，没有任何其他元素，就像是已经裁剪好的头像图片。这张图片将直接用于用户界面，不需要任何后期编辑。`;
+The final product must be a single, complete, standalone Minecraft-style character avatar without any other elements, like a pre-cropped avatar image. This image will be used directly in the user interface, requiring no post-editing.`;
 
-      console.log('使用DALL-E 3生成Minecraft风格像素艺术...');
+      console.log('Using DALL-E 3 to generate Minecraft-style pixel art...');
       const result = await retryWithDelay(
         async () =>
           await openai.images.generate({
@@ -248,18 +324,20 @@ Minecraft风格要求:
         5
       );
 
-      if (result.data[0].url) {
-        // 更新请求计数
-        await prisma.macAddressLimit.update({
-          where: { macAddress },
-          data: {
-            dailyRequestCount: macRecord.dailyRequestCount + 1,
-            lastRequestDate: new Date(),
-          },
-        });
-      }
+      // wait 1 second
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      console.log('Minecraft风格图像生成成功');
+      // updated request count
+      await prisma.macAddressLimit.update({
+        where: { macAddress },
+        data: {
+          dailyRequestCount: macRecord.dailyRequestCount + 1,
+          lastRequestDate: new Date(),
+          lastRequestTime: new Date(),
+        },
+      });
+
+      console.log('Minecraft style image generation successful');
       return NextResponse.json({
         imageUrl: result.data[0].url,
         analysis: imageAnalysis,
@@ -267,13 +345,13 @@ Minecraft风格要求:
       });
     }
   } catch (error) {
-    console.error('处理失败:', error);
-    return NextResponse.json({ error: '图像处理失败' }, { status: 500 });
+    console.error('Processing failed:', error);
+    return NextResponse.json({ error: 'Image processing failed' }, { status: 500 });
   } finally {
-    // 清理临时文件
+    // Clean up temporary file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
     }
-    console.log('========== 像素化图像API请求结束 ==========');
+    console.log('========== Pixel Art API Request End ==========');
   }
 }

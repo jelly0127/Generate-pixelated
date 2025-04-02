@@ -70,14 +70,14 @@ const PixelArtGenerator = () => {
 
     // 验证文件类型
     if (!file.type.startsWith('image/')) {
-      setError('请上传图片文件');
+      setError('please upload a image file');
       return;
     }
 
     // 验证文件大小（4MB = 4 * 1024 * 1024 bytes）
     const maxSize = 4 * 1024 * 1024; // 4MB in bytes
     if (file.size > maxSize) {
-      setError('图片大小不能超过4MB');
+      setError('image size must be less than 4MB');
       return;
     }
 
@@ -130,11 +130,11 @@ const PixelArtGenerator = () => {
           const store = transaction.objectStore('devices');
           store.put({ id: 'currentDevice', value: deviceId });
         } catch (err) {
-          console.error('IndexedDB存储失败', err);
+          console.error('IndexedDB storage failed', err);
         }
       } catch (err) {
         // 回退到原始的生成方式
-        console.error('指纹识别失败，使用备用方法', err);
+        console.error('fingerprint identification failed, using backup method', err);
 
         // 创建一个基于浏览器特征的简单指纹，与原来的代码一样
         const fingerprint = [
@@ -145,9 +145,8 @@ const PixelArtGenerator = () => {
           new Date().getTimezoneOffset(),
           navigator.platform,
           // 增加更多特征
-          navigator.hardwareConcurrency,
-          navigator.deviceMemory,
-          navigator.maxTouchPoints,
+          navigator.hardwareConcurrency || '',
+          navigator.maxTouchPoints || 0,
           screen.colorDepth,
           new Date().getTimezoneOffset(),
         ].join('_');
@@ -173,12 +172,12 @@ const PixelArtGenerator = () => {
 
         // 如果存储的指纹与当前不匹配，重新生成
         if (storedParts.length > 1 && !deviceId.includes(currentFingerprint)) {
-          console.log('设备特征发生变化，重新生成ID');
+          // console.log('device feature changed, generating new ID');
           localStorage.removeItem('device_identifier');
           return getDeviceIdentifier(); // 递归调用自身重新生成
         }
       } catch (err) {
-        console.error('指纹验证失败', err);
+        console.error('fingerprint verification failed', err);
       }
     }
 
@@ -187,7 +186,7 @@ const PixelArtGenerator = () => {
 
   const generateImage = async () => {
     if (!uploadedFile) {
-      setError('请先上传图片');
+      setError('please upload a image file');
       return;
     }
 
@@ -221,11 +220,11 @@ const PixelArtGenerator = () => {
           setRemainingRequests(response.data.remainingRequests);
         }
       } else {
-        setError('转换图像失败');
+        setError('image generation failed');
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.error || '请求错误，请稍后再试';
-      setError(`API请求错误: ${errorMessage}`);
+      const errorMessage = err?.response?.data?.error || 'request error, please try again later';
+      setError(`API request error: ${errorMessage}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -273,79 +272,123 @@ const PixelArtGenerator = () => {
   };
 
   return (
-    <div className="flex w-full max-w-3xl flex-col items-center gap-6">
-      <h1 className="text-2xl font-bold">像素艺术图片生成器</h1>
+    <div className="mx-auto mb-20 max-w-6xl p-4 md:mb-10 lg:p-8">
+      {/* Header */}
+      <h1 className="mb-4 text-center text-4xl font-bold text-[#B36C31]">Create Your Pixel Art Avatar</h1>
+      <p className="mb-8 text-center text-gray-600">
+        Upload your photo, adjust size and position to create a personalized pixel art
+      </p>
 
-      <div className="w-full">
-        <label className="mb-2 block font-medium">选择风格:</label>
-        <select value={style} onChange={(e) => setStyle(e.target.value)} className="mb-4 w-full rounded-md border p-2">
-          <option value="minecraft">我的世界像素风格</option>
-        </select>
-
-        <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full rounded-md border p-2" />
-      </div>
-
-      <button
-        onClick={generateImage}
-        disabled={loading || !uploadedFile}
-        className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400"
-      >
-        {loading
-          ? '生成中...'
-          : `生成${style === 'minecraft' ? '我的世界' : style === 'anime' ? '动漫' : '吉卜力'}像素艺术`}
-      </button>
-
-      {error && <div className="text-red-500">{error}</div>}
-
-      {remainingRequests !== null && <div className="mt-2 text-blue-600">今日剩余请求次数: {remainingRequests}</div>}
-
-      {/* 两张图片并排显示，限制尺寸为300px */}
-      <div className="flex w-full flex-row flex-wrap justify-center gap-8">
-        {originalImage && (
-          <div className="flex flex-col items-center">
-            <h2 className="mb-2 text-lg font-medium">原始图像</h2>
-            <div className="h-[150px] w-[150px] overflow-hidden rounded-lg border">
-              <img src={originalImage} alt="原始图像" className="h-full w-full object-cover" />
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+        {/* Left Panel - Editor & Generated Image */}
+        <div className="rounded-2xl bg-white p-4 shadow-lg lg:p-8">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F8D66D]">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
             </div>
+            <h2 className="text-xl font-semibold text-black">Pixel Art Editor</h2>
           </div>
-        )}
 
-        {generatedImage && (
-          <div className="flex flex-col items-center">
-            <h2 className="mb-2 text-lg font-medium">生成的像素艺术</h2>
-            <div className="overflow-hidden rounded-lg border" style={{ width: '150px', height: '150px' }}>
-              <img
-                src={generatedImage}
-                alt="生成的像素艺术"
-                className="h-full w-full object-cover"
-                style={{ width: '150px', height: '150px' }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+          <p className="mb-6 text-gray-600">Upload photo to start</p>
 
-      {/* 添加更多下载选项 */}
-      {generatedImage && (
-        <div className="flex flex-col items-center">
-          <div className="mt-2 flex gap-2">
-            <button onClick={downloadImage} className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">
-              下载头像 (128x128)
-            </button>
-            <button
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = generatedImage;
-                link.download = `pixel_art_original.png`;
-                link.click();
-              }}
-              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          {/* Style Selection */}
+          <div className="mb-6">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Select Style</label>
+            <select
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
+              className="w-full rounded-lg bg-black px-4 py-2 text-white focus:border-transparent focus:ring-2 focus:ring-[#F8D66D]"
             >
-              下载原始大小
+              <option value="minecraft">Minecraft Style</option>
+            </select>
+          </div>
+
+          {/* Generated Image */}
+          {generatedImage ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center overflow-hidden rounded-lg border border-gray-200">
+                <img src={generatedImage} alt="Generated" className="h-auto w-full max-w-[200px] rounded" />
+              </div>
+              {/* Download Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={downloadImage}
+                  className="flex-1 rounded-lg bg-[#F8D66D] px-4 py-2 text-black transition-colors hover:bg-[#f4c84d]"
+                >
+                  Download 128x128
+                </button>
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = generatedImage;
+                    link.download = `pixel_art_original.png`;
+                    link.click();
+                  }}
+                  className="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  Download Original
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-gray-300">
+              <p className="text-gray-500">Generated image will appear here</p>
+            </div>
+          )}
+
+          {remainingRequests !== null && (
+            <div className="mt-4 text-sm text-gray-600">Remaining requests today: {remainingRequests}</div>
+          )}
+        </div>
+
+        {/* Right Panel - Upload Area */}
+        <div className="relative overflow-hidden rounded-2xl bg-[#5B7A9B] p-4 lg:p-8">
+          <div className="flex min-h-[400px] flex-col items-center justify-center text-white">
+            <h2 className="mb-4 text-2xl font-semibold">Upload Your Photo</h2>
+            <p className="mb-6">Merge your photo with pixel art style</p>
+
+            <button
+              onClick={() => document.getElementById('fileInput')?.click()}
+              className="mb-6 flex items-center gap-2 rounded-full bg-[#F8D66D] px-6 py-3 text-black transition-colors hover:bg-[#f4c84d]"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              Choose Photo
             </button>
+            <input id="fileInput" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+
+            {originalImage && (
+              <div className="mb-6 mt-4 w-full max-w-[200px]">
+                <img src={originalImage} alt="Original" className="h-auto w-full rounded-lg" />
+              </div>
+            )}
+
+            {/* Generate Button - 移到右边卡片中 */}
+            <button
+              onClick={generateImage}
+              disabled={loading || !uploadedFile}
+              className="w-full rounded-lg bg-[#F8D66D] py-3 font-medium text-black transition-colors hover:bg-[#f4c84d] disabled:bg-gray-200 disabled:text-gray-500"
+            >
+              {loading ? 'Generating...' : 'Generate Pixel Art'}
+            </button>
+
+            {error && <div className="mt-4 text-sm text-red-500">{error}</div>}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

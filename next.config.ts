@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NODE_ENV === 'production' ? 'https://z-block.xyz' : 'http://localhost:3000',
+            value: process.env.NODE_ENV === 'production' ? 'https://minecraftbsc.com' : 'http://localhost:3000',
           },
         ],
       },

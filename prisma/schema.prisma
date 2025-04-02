@@ -13,8 +13,17 @@ model MacAddressLimit {
   macAddress        String   @unique
   dailyRequestCount Int      @default(0)
   lastRequestDate   DateTime @default(now())
+  lastRequestTime   DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([macAddress])
+}
+
+// 新增：全局速率限制表
+model ApiRateLimit {
+  id              String   @id @default("global")
+  requestCount    Int      @default(0)
+  windowStartTime DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
