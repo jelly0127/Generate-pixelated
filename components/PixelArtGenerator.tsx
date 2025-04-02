@@ -320,9 +320,10 @@ const PixelArtGenerator = () => {
               <div className="flex gap-3">
                 <button
                   onClick={downloadImage}
-                  className="flex-1 rounded-lg bg-[#F8D66D] px-4 py-2 text-black transition-colors hover:bg-[#f4c84d]"
+                  className="flex-1 rounded-lg flex flex-col items-center justify-center bg-[#F8D66D] px-4 py-2 text-black transition-colors hover:bg-[#f4c84d]"
                 >
-                  Download 128x128
+                  Download
+                  <span className='text-xs'>128x128</span>
                 </button>
                 <button
                   onClick={() => {
