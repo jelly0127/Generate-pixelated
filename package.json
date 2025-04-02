@@ -16,6 +16,7 @@
   "dependencies": {
     "@chakra-ui/react": "^3.3.3",
     "@emotion/react": "^11.14.0",
+    "@fingerprintjs/fingerprintjs": "^4.6.1",
     "@hookform/resolvers": "^3.10.0",
     "@prisma/client": "^6.4.0",
     "@reown/appkit": "^1.6.3",

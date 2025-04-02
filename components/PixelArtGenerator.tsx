@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import axios from 'axios';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 // import Image from 'next/image';
 const PixelArtGenerator = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -97,25 +98,88 @@ const PixelArtGenerator = () => {
 
     // 如果没有存储的ID，则生成一个新的
     if (!deviceId) {
-      // 创建一个基于浏览器特征的简单指纹
-      const fingerprint = [
-        navigator.userAgent,
-        navigator.language,
-        screen.width,
-        screen.height,
-        new Date().getTimezoneOffset(),
-        navigator.platform,
-      ].join('_');
+      try {
+        // 使用FingerprintJS创建更可靠的设备指纹
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
 
-      // 简单哈希函数
-      let hash = 0;
-      for (let i = 0; i < fingerprint.length; i++) {
-        hash = (hash << 5) - hash + fingerprint.charCodeAt(i);
-        hash |= 0; // 转为32位整数
+        // 获取指纹ID
+        const visitorId = result.visitorId;
+
+        // 加入额外的熵以增加唯一性
+        deviceId = `device_${visitorId}_${Date.now().toString(16)}`;
+
+        // 使用localStorage和IndexedDB双重存储
+        localStorage.setItem('device_identifier', deviceId);
+
+        // 在多个位置存储相同的ID，增加检测难度
+        try {
+          const db = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open('deviceTracking', 1);
+            request.onupgradeneeded = () => {
+              const db = request.result;
+              if (!db.objectStoreNames.contains('devices')) {
+                db.createObjectStore('devices', { keyPath: 'id' });
+              }
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+
+          const transaction = db.transaction(['devices'], 'readwrite');
+          const store = transaction.objectStore('devices');
+          store.put({ id: 'currentDevice', value: deviceId });
+        } catch (err) {
+          console.error('IndexedDB存储失败', err);
+        }
+      } catch (err) {
+        // 回退到原始的生成方式
+        console.error('指纹识别失败，使用备用方法', err);
+
+        // 创建一个基于浏览器特征的简单指纹，与原来的代码一样
+        const fingerprint = [
+          navigator.userAgent,
+          navigator.language,
+          screen.width,
+          screen.height,
+          new Date().getTimezoneOffset(),
+          navigator.platform,
+          // 增加更多特征
+          navigator.hardwareConcurrency,
+          navigator.deviceMemory,
+          navigator.maxTouchPoints,
+          screen.colorDepth,
+          new Date().getTimezoneOffset(),
+        ].join('_');
+
+        let hash = 0;
+        for (let i = 0; i < fingerprint.length; i++) {
+          hash = (hash << 5) - hash + fingerprint.charCodeAt(i);
+          hash |= 0;
+        }
+
+        deviceId = `device_${Math.abs(hash).toString(16)}_${Date.now().toString(16)}`;
+        localStorage.setItem('device_identifier', deviceId);
       }
+    } else {
+      // 检查设备指纹是否匹配当前设备（增加检测）
+      try {
+        const fp = await FingerprintJS.load();
+        const result = await fp.get();
+        const currentFingerprint = result.visitorId;
 
-      deviceId = `device_${Math.abs(hash).toString(16)}_${Date.now().toString(16)}`;
-      localStorage.setItem('device_identifier', deviceId);
+        // 从deviceId中提取原始指纹
+        const storedParts = deviceId.split('_');
+
+        // 如果存储的指纹与当前不匹配，重新生成
+        if (storedParts.length > 1 && !deviceId.includes(currentFingerprint)) {
+          console.log('设备特征发生变化，重新生成ID');
+          localStorage.removeItem('device_identifier');
+          return getDeviceIdentifier(); // 递归调用自身重新生成
+        }
+      } catch (err) {
+        console.error('指纹验证失败', err);
+      }
     }
 
     return deviceId;
