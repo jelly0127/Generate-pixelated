@@ -22,6 +22,12 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: '**.blob.core.windows.net',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
         port: '',
         pathname: '/**',
@@ -39,7 +45,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-    // unoptimized: true,
+    unoptimized: true,
   },
   // output: 'standalone',
   // distDir: '.next',

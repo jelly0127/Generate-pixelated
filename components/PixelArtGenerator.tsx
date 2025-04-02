@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import axios from 'axios';
-import Image from 'next/image';
+// import Image from 'next/image';
 const PixelArtGenerator = () => {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -171,10 +171,41 @@ const PixelArtGenerator = () => {
   const downloadImage = () => {
     if (!generatedImage) return;
 
-    const link = document.createElement('a');
-    link.href = generatedImage;
-    link.download = `pixel_art_${style}.png`;
-    link.click();
+    // 创建一个canvas进行裁剪
+    const canvas = document.createElement('canvas');
+    const img = document.createElement('img');
+
+    img.onload = () => {
+      // 设置canvas大小为128x128作为标准头像尺寸
+      canvas.width = 128;
+      canvas.height = 128;
+
+      const ctx = canvas.getContext('2d');
+
+      // 居中裁剪
+      const size = Math.min(img.width, img.height);
+      const offsetX = (img.width - size) / 2;
+      const offsetY = (img.height - size) / 2;
+
+      // 绘制图像居中部分
+      ctx?.drawImage(img, offsetX, offsetY, size, size, 0, 0, 128, 128);
+
+      // 创建下载链接
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `pixel_art_avatar.png`;
+          link.click();
+
+          // 清理
+          setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+      });
+    };
+
+    img.src = generatedImage;
   };
 
   return (
@@ -209,14 +240,8 @@ const PixelArtGenerator = () => {
         {originalImage && (
           <div className="flex flex-col items-center">
             <h2 className="mb-2 text-lg font-medium">原始图像</h2>
-            <div className="overflow-hidden rounded-lg border" style={{ width: '300px', height: '300px' }}>
-              <Image
-                src={originalImage}
-                alt="原始图像"
-                className="h-full w-full object-cover"
-                width={300}
-                height={300}
-              />
+            <div className="h-[150px] w-[150px] overflow-hidden rounded-lg border">
+              <img src={originalImage} alt="原始图像" className="h-full w-full object-cover" />
             </div>
           </div>
         )}
@@ -224,24 +249,38 @@ const PixelArtGenerator = () => {
         {generatedImage && (
           <div className="flex flex-col items-center">
             <h2 className="mb-2 text-lg font-medium">生成的像素艺术</h2>
-            <div className="overflow-hidden rounded-lg border">
-              <Image
+            <div className="overflow-hidden rounded-lg border" style={{ width: '150px', height: '150px' }}>
+              <img
                 src={generatedImage}
                 alt="生成的像素艺术"
                 className="h-full w-full object-cover"
-                width={300}
-                height={300}
+                style={{ width: '150px', height: '150px' }}
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* 下载按钮 */}
+      {/* 添加更多下载选项 */}
       {generatedImage && (
-        <button onClick={downloadImage} className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">
-          下载像素艺术图像
-        </button>
+        <div className="flex flex-col items-center">
+          <div className="mt-2 flex gap-2">
+            <button onClick={downloadImage} className="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">
+              下载头像 (128x128)
+            </button>
+            <button
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = generatedImage;
+                link.download = `pixel_art_original.png`;
+                link.click();
+              }}
+              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            >
+              下载原始大小
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -13,15 +13,31 @@ const openai = new OpenAI({
 // 每日请求限制
 const DAILY_REQUEST_LIMIT = 5;
 
-// 重试函数
-const retryWithDelay = async <T>(fn: () => Promise<T>, retries: number = 3, delay: number = 1000): Promise<T> => {
-  try {
-    return await fn();
-  } catch (error) {
-    if (retries <= 0) throw error;
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    return retryWithDelay(fn, retries - 1, delay * 2);
+// 增强版重试函数
+const retryWithDelay = async <T>(
+  fn: () => Promise<T>,
+  retries: number = 5, // 增加重试次数到5次
+  initialDelay: number = 2000, // 初始延迟2秒
+  maxDelay: number = 10000 // 最大延迟10秒
+): Promise<T> => {
+  let lastError;
+  for (let i = 0; i < retries; i++) {
+    try {
+      // 设置超时
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 30000); // 30秒超时
+      });
+      const resultPromise = fn();
+      return (await Promise.race([resultPromise, timeoutPromise])) as T;
+    } catch (error) {
+      lastError = error;
+      console.log(`重试第 ${i + 1} 次失败，等待重试...`);
+      // 指数退避延迟
+      const delay = Math.min(initialDelay * Math.pow(2, i), maxDelay);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
+  throw lastError;
 };
 
 export async function POST(request: Request) {
@@ -91,32 +107,31 @@ export async function POST(request: Request) {
 
     console.log('临时文件已创建:', tempFilePath);
 
-    // 步骤1: 使用GPT-4O分析图像
-    console.log('使用GPT-4O分析图像特征...');
+    // 修改系统提示，使分析更详细
+    const systemPrompt = `你是一个专业的图像分析专家。请详细分析图片中的人物特征，包括：
+    1. 面部特征（眼睛形状和颜色、鼻子、嘴唇颜色和形状、肤色、脸型等）
+    2. 发型（长度、颜色、质地、发型风格、刘海等）
+    3. 服装（款式、颜色、材质、领口形状等）
+    4. 配饰（项链、耳环、发饰、蝴蝶结等及其颜色和位置）
+    5. 纹身或其他特殊标记（位置、图案、颜色）
+    6. 整体姿态、表情和氛围
+
+    请使用具体的色彩描述（如"浅棕色"而非"棕色"）和精确的形容词。这些描述将用于生成Minecraft风格的像素头像，必须极其详尽准确。
+    描述应包含至少300个字符，细致描述每个重要特征。`;
+
+    // 在分析图像部分使用更详细的系统提示
     const visionAnalysis = await retryWithDelay(
       async () => {
         return await openai.chat.completions.create({
           model: 'gpt-4o',
           messages: [
-            {
-              role: 'system',
-              content: `你是一个专业的图像分析专家。请详细分析图片中的人物特征，包括：
-1. 面部特征（眼睛、嘴唇、肤色等）
-2. 发型（长度、颜色、风格）
-3. 服装（类型、颜色、风格）
-4. 配饰（项链、发饰等）
-5. 纹身或其他特殊标记
-6. 整体姿态和表情
-
-请确保描述详尽且准确，这些信息将用于生成Minecraft风格的像素艺术。
-描述应该至少包含200个字符。`,
-            },
+            { role: 'system', content: systemPrompt },
             {
               role: 'user',
               content: [
                 {
                   type: 'text',
-                  text: '请仔细分析这张图片中的所有细节，用于生成Minecraft风格的像素艺术。',
+                  text: '请极其详细地分析这张图片中的所有细节，尤其关注面部特征、发饰和纹身。这将用于生成高度相似的Minecraft风格像素头像。',
                 },
                 {
                   type: 'image_url',
@@ -128,7 +143,7 @@ export async function POST(request: Request) {
             },
           ],
           max_tokens: 4000,
-          temperature: 0.7,
+          temperature: 0.5, // 降低温度确保更准确的描述
         });
       },
       3,
@@ -140,32 +155,44 @@ export async function POST(request: Request) {
     console.log('图像分析完成, 长度:', imageAnalysis.length);
 
     // 检查分析结果是否完整
-    if (imageAnalysis.length < 20) {
+    if (imageAnalysis.length < 50) {
       console.error('图像分析结果不完整，使用备用描述');
 
       // 使用备用描述生成图像
-      const prompt = `创建一张严格的Minecraft风格像素肖像，基于以下详细描述:
+      const prompt = `创建一个单一的Minecraft风格正面头像，就像游戏中的用户头像一样:
 
-必须严格遵循以下Minecraft风格要求:
-- 图像必须由明显的大方块像素构成，类似Minecraft游戏中的方块
-- 面部和身体必须是由大的方形像素块组成，没有任何平滑过渡
-- 使用Minecraft游戏的典型色彩和方块质感，最多使用16-24种颜色
-- 不要使用任何平滑过渡、阴影渐变或抗锯齿效果
-- 人物应该看起来就像是从Minecraft游戏中截取的角色，或者像Minecraft玩家皮肤
-- 特别注意保持面部特征的相似性，即使是在Minecraft风格的限制下
+${imageAnalysis}
 
-最终效果必须是由明显可见的大方块像素组成的Minecraft风格角色，同时仍能识别出原图中的人物。
-结果必须是人物肖像，而不是风景或建筑物。`;
+严格要求:
+- 只生成一个正面视角的头像，像Minecraft用户头像
+- 图像必须是正方形，只显示头部和肩部,上半身
+- 禁止多视角，禁止侧面图，禁止3D展示
+- 禁止任何参考图、色板、箭头或标签
+- 禁止分割画面，必须只有一个单一的头像图像
+- 背景应该是简单纯色或透明
+
+头像设计:
+- 使用16x16或32x32像素的经典Minecraft头像风格
+- 像素必须清晰可见，每个像素是方形的
+- 头部应该占据图像的主要部分
+- 确保保留蝴蝶发饰等原图中的重要特征
+- 使用Minecraft风格的有限调色板
+
+这个头像将直接用作用户的个人资料图片，请确保它是一个干净、单一的正面头像图像，没有任何额外元素。`;
 
       console.log('使用DALL-E 3生成Minecraft风格像素艺术...');
-      const result = await openai.images.generate({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'hd',
-        style: 'natural',
-      });
+      const result = await retryWithDelay(
+        async () =>
+          await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'hd',
+            style: 'vivid',
+          }),
+        5 // 5次重试
+      );
       if (result.data[0].url) {
         // 更新请求计数
         await prisma.macAddressLimit.update({
@@ -185,31 +212,41 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: '图像处理失败' }, { status: 500 });
       }
     } else {
-      // 使用成功的分析结果
-      const prompt = `创建一张严格的Minecraft风格像素肖像，基于以下详细描述:
+      // 强化版提示词，专注于单一头像生成
+      const prompt = `创建一张干净的方形Minecraft风格像素头像，不含任何额外元素:
 
 ${imageAnalysis}
 
-必须严格遵循以下Minecraft风格要求:
-- 图像必须由明显的大方块像素构成，类似Minecraft游戏中的方块
-- 面部和身体必须是由大的方形像素块组成，没有任何平滑过渡
-- 使用Minecraft游戏的典型色彩和方块质感，最多使用16-24种颜色
-- 不要使用任何平滑过渡、阴影渐变或抗锯齿效果
-- 人物应该看起来就像是从Minecraft游戏中截取的角色，或者像Minecraft玩家皮肤
-- 特别注意保持面部特征的相似性，即使是在Minecraft风格的限制下
+【重要】这是用于头像的最终成品图，必须遵循以下要求:
+1. 整个图像中必须只有一个主体人物头像，不能有任何其他视图或参考元素
+2. 绝对禁止生成任何色板、参考图、设计元素、UI界面或分割线
+3. 绝对禁止在画面任何部分包含箭头、标签、文字说明或辅助图形
+4. 绝对禁止将图像分割为多个部分或多个视角
+5. 背景必须是单一纯色，没有任何图案或渐变
+6. 必须是完整的作品，直接可用作头像，无需任何裁剪
 
-最终效果必须是由明显可见的大方块像素组成的Minecraft风格角色，同时仍能识别出原图中的人物。
-结果必须是人物肖像，而不是风景或建筑物。`;
+Minecraft风格要求:
+1. 使用清晰的像素方块表现，像Minecraft皮肤那样
+2. 面部细节要精确（眼睛、嘴唇与原图高度相似）
+3. 如蝴蝶发饰必须准确表现，包括颜色和位置
+4. 头发颜色和风格必须与原图匹配
+5. 如项链和纹身细节要保留，但用像素风格表现
+
+最终成品必须是单一的、完整的、独立的Minecraft风格人物头像，没有任何其他元素，就像是已经裁剪好的头像图片。这张图片将直接用于用户界面，不需要任何后期编辑。`;
 
       console.log('使用DALL-E 3生成Minecraft风格像素艺术...');
-      const result = await openai.images.generate({
-        model: 'dall-e-3',
-        prompt: prompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'hd',
-        style: 'natural',
-      });
+      const result = await retryWithDelay(
+        async () =>
+          await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'hd',
+            style: 'vivid',
+          }),
+        5
+      );
 
       if (result.data[0].url) {
         // 更新请求计数
